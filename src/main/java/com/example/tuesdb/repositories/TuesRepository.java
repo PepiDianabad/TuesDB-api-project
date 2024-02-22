@@ -1,18 +1,18 @@
 package com.example.tuesdb.repositories;
 
-import com.example.tuesdb.dtos.BikeDto;
-import com.example.tuesdb.dtos.PersonDto;
-import com.example.tuesdb.models.Bike;
+import com.example.tuesdb.dtos.GroupDto.GroupOutDto;
+import com.example.tuesdb.dtos.PermissionDto.PermissionOutDto;
+import com.example.tuesdb.dtos.PersonDto.PersonInputDto;
+import com.example.tuesdb.dtos.PersonDto.PersonOutputDto;
 import com.example.tuesdb.models.Person;
+import com.example.tuesdb.models.Groups;
+import com.example.tuesdb.models.Permission;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
 import jakarta.transaction.Transactional;
-import org.springframework.util.CollectionUtils;
+
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Repository
 public class TuesRepository {
@@ -22,55 +22,71 @@ public class TuesRepository {
         this.entityManager = entityManager;
     }
 
+    public List<PersonOutputDto> getAllUsers() {
+        return this.entityManager.createQuery("select p from Person p", Person.class).getResultList().stream().map(PersonOutputDto::new).toList();
+    }
+
     @Transactional
-    public Person createPerson(PersonDto personDto) {
+    public PersonOutputDto createUser(PersonInputDto personInputDto) {
         Person newPerson = new Person();
-        newPerson.setEmail(personDto.getEmail());
-        newPerson.setFirstName(personDto.getFirstName());
-        newPerson.setLastName(personDto.getLastName());
 
-        if (!CollectionUtils.isEmpty(personDto.getBikes())) {
+        newPerson.setName(personInputDto.getUsername());
+        newPerson.setPassword(personInputDto.getPassword());
+        newPerson.setName(personInputDto.getName());
+        newPerson.setPermission(new HashSet<>());
+        newPerson.setGroups(new HashSet<>());
 
-            Set<Long> bikeIds = personDto.getBikes().stream().map(BikeDto::getId).collect(Collectors.toSet());
+        for(String currentPermissionName : personInputDto.getPermissions()) {
+            Permission currentPermission = this.entityManager.createQuery("select p from Permission p where label = :currentPermissionName", Permission.class).setParameter("currentPermissionName", currentPermissionName).getSingleResult();
 
-            TypedQuery<Bike> q = entityManager.createQuery("select b from Bike b where id in (:in)", Bike.class);
-            q.setParameter("in", bikeIds);
-
-            List<Bike> bikes = q.getResultList();
-
-            if (CollectionUtils.isEmpty(bikes)) {
-                throw new RuntimeException("Bikes not found");
-            }
-
-            newPerson.setBikes(new HashSet<>(bikes));
+            newPerson.getPermissions().add(currentPermission);
         }
 
-        entityManager.persist(newPerson);
+        for (String currentGroupName : personInputDto.getGroups()) {
+            Groups currentGroup = this.entityManager.createQuery("select g from Groups g where name = :currentGroupName", Groups.class)
+                    .setParameter("currentGroupName", currentGroupName)
+                    .getSingleResult();
 
-        return newPerson;
+            newPerson.getGroups().add(currentGroup);
+        }
+
+
+        this.entityManager.persist(newPerson);
+
+        return new PersonOutputDto(newPerson);
+    }
+
+    public List<GroupOutDto> getAllGroups() {
+        return this.entityManager.createQuery("select g from Groups g", Groups.class)
+                .getResultList().stream().map(GroupOutDto::new).toList();
+    }
+
+
+    public List<PermissionOutDto> getAllPermissions() {
+        return this.entityManager.createQuery("select p from Permission p", Permission.class).getResultList().stream().map(PermissionOutDto::new).toList();
+    }
+
+    public List<GroupOutDto> getGroupByName(String groupName) {
+        return this.entityManager.createQuery("select g from Groups g where g.name = :groupName", Groups.class)
+                .setParameter("groupName", groupName)
+                .getResultList().stream().map(GroupOutDto::new).toList();
     }
 
     @Transactional
-    public Bike createBike(BikeDto bikeDto) {
-        Bike newBike = new Bike();
-        newBike.setMake(bikeDto.getMake());
-        newBike.setModel(bikeDto.getModel());
+    public List<PersonOutputDto> getAllPeopleFromWantedGroup(String groupName) {
+        List<PersonOutputDto> people;
 
-        if (bikeDto.getPersonId() != null) {
-            Person owner = entityManager.find(Person.class, bikeDto.getPersonId());
-            if (owner == null) {
-                throw new RuntimeException("Person not found");
-            }
-            newBike.setOwner(owner);
-        }
+        int wantedGroupId = this.entityManager.createQuery("select g.id from Groups g where g.name = :groupName", Groups.class)
+                .setParameter("groupName", groupName)
+                .getFirstResult();
 
-        entityManager.persist(newBike);
 
-        return newBike;
-    }
+        people = this.entityManager.createQuery(
+                        "select new com.example.tuesdb.dtos.PersonDto.PersonOutputDto(p) from Person p" +
+                                " join p.groups g on g.id = :groupId", PersonOutputDto.class)
+                .setParameter("groupId", wantedGroupId)
+                .getResultList();
 
-    public List<PersonDto> getAll() {
-        return entityManager.createQuery("select p from Person p", Person.class)
-                .getResultList().stream().map(PersonDto::new).toList();
+        return people;
     }
 }

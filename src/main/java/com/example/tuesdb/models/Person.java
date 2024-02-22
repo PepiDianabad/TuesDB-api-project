@@ -2,7 +2,7 @@ package com.example.tuesdb.models;
 
 import jakarta.persistence.*;
 
-import java.util.HashSet;
+
 import java.util.Set;
 
 @Entity
@@ -12,15 +12,15 @@ public class Person {
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
-    private String firstName;
+    private String name;
 
-    private String lastName;
+    private String password;
 
-    @Column(unique = true)
-    private String email;
+    @ManyToMany
+    private Set<Permission> permissions;
 
-    @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
-    private Set<Bike> bikes = new HashSet<>();
+    @ManyToMany
+    private Set<Groups> groups;
 
 
     public void setId(Long id) {
@@ -31,35 +31,25 @@ public class Person {
         return id;
     }
 
-    public String getLastName() {
-        return lastName;
+    public String getName() {
+        return name;
     }
 
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
+    public void setName(String name) {this.name = name;}
+
+    public String getPassword(){return password; }
+
+    public void setPassword(String password){this.password = password; }
+
+    public Set<Permission> getPermissions() {
+        return permissions;
     }
 
-    public String getFirstName() {
-        return firstName;
+    public void setPermission(Set<Permission> permissions) {
+        this.permissions = permissions;
     }
 
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
+    public Set<Groups> getGroups(){return groups; }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public Set<Bike> getBikes() {
-        return bikes;
-    }
-
-    public void setBikes(Set<Bike> bikes) {
-        this.bikes = bikes;
-    }
+    public void setGroups(Set<Groups> groups){ this.groups = groups; }
 }
